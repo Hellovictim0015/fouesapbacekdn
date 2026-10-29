@@ -6,19 +6,30 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "db:seed": "node --env-file-if-exists=.env.local scripts/seed.mjs",
+    "admin:create": "node --env-file-if-exists=.env.local scripts/create-admin.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
   },
   "dependencies": {
+    "bcryptjs": "3.0.3",
+    "jose": "6.2.14",
+    "mysql2": "3.24.6",
     "next": "16.4.3",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
+    "@types/jest": "30.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
+    "jest": "30.5.2",
     "typescript": "^5"
   }
 }
