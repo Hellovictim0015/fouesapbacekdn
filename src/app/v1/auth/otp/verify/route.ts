@@ -1,6 +1,8 @@
 import { enhancePrepGoal } from "@/server/ai/prep";
 import { hashCode, hashToken, newSessionToken, OTP_MAX_ATTEMPTS, safeEqualHex, SESSION_TTL_DAYS } from "@/server/auth/otp";
 import { normalizePhone } from "@/server/auth/phone";
+import { isReviewLogin, REVIEW_PLAN_DAYS } from "@/server/auth/review";
+import { PRODUCT } from "@/server/pay/products";
 import { getServices } from "@/server/container";
 import { clientIp, HttpError, handle, json, readBody } from "@/server/http/respond";
 import { OtpVerifySchema } from "@/server/http/schemas";
@@ -12,7 +14,7 @@ export function POST(req: Request) {
     const phone = normalizePhone(raw);
     if (!phone) throw new HttpError(400, "invalid_phone", "Enter a 10-digit Indian mobile number");
 
-    const { limiter, repos, authSecret, ai } = getServices();
+    const { limiter, repos, authSecret, ai, env } = getServices();
     const ip = await limiter.hit(`otp-verify:ip:${clientIp(req)}`, 60, 3600);
     if (!ip.allowed) {
       throw new HttpError(429, "rate_limited", "Too many attempts. Try again later.", { "Retry-After": String(ip.retryAfterSec) });
@@ -37,6 +39,20 @@ export function POST(req: Request) {
     // Optional "what are you preparing for" box: cleaned by the AI, never blocks the login.
     const prepGoal = (await enhancePrepGoal(ai, prep)) ?? undefined;
     const user = await repos.users.upsertByAuthUid(authUid, { phone, prepGoal, role }); // the role is only used when the account is created
+
+    if (isReviewLogin(phone, env.REVIEW_LOGIN) && user.role !== "child") {
+      await repos.subscriptions.save(user.id, {
+        productId: user.role === "parent" ? PRODUCT.parent : PRODUCT.student,
+        purchaseToken: "review-access",
+        linkedPurchaseToken: null,
+        status: "ACTIVE",
+        expiresAt: new Date(Date.now() + REVIEW_PLAN_DAYS * 24 * 3600 * 1000),
+        autoRenewing: false,
+        acknowledged: true,
+        latestOrderId: null,
+        playState: "review",
+      });
+    }
 
     const token = newSessionToken();
     const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 3600 * 1000);

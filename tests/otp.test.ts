@@ -130,6 +130,30 @@ describe("phone login", () => {
     expect(h.sms.sent).toHaveLength(0);
   });
 
+  it("the Play review number logs in with 123456 and no message is sent; any other number does not", async () => {
+    const h = useServices();
+    const sent = await requestOtp(post("/v1/auth/otp/request", { phone: "8827219873" }));
+    expect(sent.status).toBe(200);
+    expect(h.sms.sent).toHaveLength(0);
+    const login = await verifyOtp(post("/v1/auth/otp/verify", { phone: "8827219873", code: "123456" }));
+    expect(login.status).toBe(200);
+    const body = await login.json();
+    expect(body.user.phone).toBe("+918827219873");
+    expect(await h.repos.subscriptions.findByUserId(body.user.id)).toMatchObject({ status: "ACTIVE", productId: "focus_student" });
+
+    await requestOtp(post("/v1/auth/otp/request", { phone: "9876543210" }));
+    expect(h.sms.sent).toHaveLength(1);
+    expect(h.sms.sent[0]!.code).not.toBe("123456".repeat(2));
+    const other = await verifyOtp(post("/v1/auth/otp/verify", { phone: "9876543210", code: h.sms.sent[0]!.code === "123456" ? "654321" : "123456" }));
+    expect(other.status).toBe(400);
+  });
+
+  it("REVIEW_LOGIN=off turns the review number back into a normal number", async () => {
+    const h = useServices({ REVIEW_LOGIN: "off" });
+    await requestOtp(post("/v1/auth/otp/request", { phone: "8827219873" }));
+    expect(h.sms.sent).toHaveLength(1);
+  });
+
   it("uses the fixed dev code when OTP_DEV_CODE is set", async () => {
     const h = useServices({ OTP_DEV_CODE: "123456" });
     await requestOtp(post("/v1/auth/otp/request", { phone: "9876543210" }));

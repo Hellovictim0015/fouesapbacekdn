@@ -17,6 +17,8 @@ const EnvSchema = z
     FAST2SMS_API_KEY: z.string().optional(),
     /** The approved WhatsApp template id from Fast2SMS (used by SMS_PROVIDER=fast2sms_whatsapp). */
     FAST2SMS_WA_MESSAGE_ID: z.string().default("38384"),
+    /** `on` lets the Google Play review number (see auth/review.ts) log in with a fixed code. Set `off` after approval. */
+    REVIEW_LOGIN: z.enum(["on", "off"]).default("on"),
     /** Development only: every login code becomes this 6-digit value, so the emulator works with no SMS. */
     OTP_DEV_CODE: z.string().regex(/^\d{6}$/).optional(),
 

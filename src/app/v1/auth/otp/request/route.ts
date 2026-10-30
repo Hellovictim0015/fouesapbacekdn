@@ -1,5 +1,6 @@
 import { generateCode, hashCode, OTP_TTL_SEC } from "@/server/auth/otp";
 import { normalizePhone } from "@/server/auth/phone";
+import { isReviewLogin, REVIEW_CODE } from "@/server/auth/review";
 import { SmsSendError } from "@/server/auth/sms";
 import { getServices } from "@/server/container";
 import { clientIp, HttpError, handle, json, readBody } from "@/server/http/respond";
@@ -28,8 +29,10 @@ export function POST(req: Request) {
       });
     }
 
-    const code = generateCode(env.OTP_DEV_CODE);
+    const review = isReviewLogin(phone, env.REVIEW_LOGIN);
+    const code = review ? REVIEW_CODE : generateCode(env.OTP_DEV_CODE);
     await repos.auth.saveOtp(phone, hashCode(authSecret, phone, code), new Date(Date.now() + OTP_TTL_SEC * 1000));
+    if (review) return json({ sent: true, expiresInSec: OTP_TTL_SEC, resendAfterSec: 30 }); // the Play review number: no message is sent
     try {
       await sms.sendOtp(phone, code);
     } catch (e) {
